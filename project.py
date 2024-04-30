@@ -33,15 +33,42 @@ def extract_cycles(data):
 
     filtered_V_indices.append(zero_V_indices[0])
 
-    for i in range(1, len(zero_V_indices)):
-        if zero_V_indices[i] != zero_V_indices[i-1] + 1:
-            filtered_V_indices.append(zero_V_indices[i])
+    V_sequence = [zero_V_indices[0]]
 
+    for i in range(1, len(zero_V_indices)):
+        
+        if zero_V_indices[i] != zero_V_indices[i-1] + 1:
+            filtered_V_indices.append(V_sequence[len(V_sequence)//2])
+            V_sequence = []
+
+        V_sequence.append(zero_V_indices[i])
+    
+    filtered_V_indices.append(V_sequence[len(V_sequence)//2])
+        
     for i in range(0, len(filtered_V_indices) - 1):
         cycles.append({'t' : t[filtered_V_indices[i]:filtered_V_indices[i+1]+1] - t[filtered_V_indices[i]],
                        'P' : P[filtered_V_indices[i]:filtered_V_indices[i+1]+1],
                        'Q' : Q[filtered_V_indices[i]:filtered_V_indices[i+1]+1],
                        'V' : V[filtered_V_indices[i]:filtered_V_indices[i+1]+1]})
+
+    
+    plt.figure()
+    plt.plot(t, V)
+    for k in range(len(filtered_V_indices)):
+        plt.axvline(t[filtered_V_indices[k]], color='red')
+    plt.show()
+
+    plt.figure()
+    plt.plot(t, Q)
+    for k in range(len(filtered_V_indices)):
+        plt.axvline(t[filtered_V_indices[k]], color='red')
+    plt.show()
+
+    plt.figure()
+    plt.plot(t, P)
+    for k in range(len(filtered_V_indices)):
+        plt.axvline(t[filtered_V_indices[k]], color='red')
+    plt.show()
 
     return cycles
 
