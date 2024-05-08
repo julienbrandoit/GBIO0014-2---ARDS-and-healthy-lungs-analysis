@@ -95,7 +95,6 @@ def plot_time_curves(data, name = "salut", title="Data",alpha_value = 0.5, x_lab
     ax.plot([P[minP], P[minP]], [0, V_Q_0], label = 'Limit of Elastic Work', color = "midnightblue", linestyle = 'dashed')
     ax.plot([P[minP], P_Q_0], [V_Q_0, V_Q_0], color = "midnightblue", linestyle = 'dashed')
     ax.legend(loc = 'lower right')
-    plt.savefig(name, dpi = 150)
     plt.show()
     plt.figure(2)
     print("---VQ loop---")
@@ -120,9 +119,55 @@ def plot_time_curves(data, name = "salut", title="Data",alpha_value = 0.5, x_lab
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.title(title)
-    ax.plot([0,V_Q_0],  [0, 0], color ="deepskyblue")
+    ax.plot([0,V_Q_0],  [0, 0], color ="deepskyblue", label ='Inspiration/Expiration Separation' )
+    plt.scatter(V[np.argmin(Q)],np.min(Q), color = 'brown', label = 'Peak Expiratory Flow')
+    plt.legend(loc = 'lower left')
+    plt.savefig(name, dpi = 150)
     plt.show()
-    
+def plot_both_curves(data_list, names=["Patient 1", "Patient 2"], title="Data", alpha_value=0.5, x_label="V", y_label="Q", grid=True):
+    plt.figure(figsize=(8, 6))
+    plt.grid(grid)
+    cmap = plt.cm.jet  # Colormap
+
+    for idx, data in enumerate(data_list):
+        P = data['P']
+        V = data['V']
+        Q = data['Q']
+        t = data['t'] - data['t'][0]
+
+        # Index of the last inspiration point
+        index_inspi = np.where(Q >= 0)[0]
+        V_Q_0 = V[index_inspi[-1]]
+
+        # Create a colormap that represents the gradient of time
+        norm = plt.Normalize(min(t), max(t))
+        colors = cmap(norm(t))
+
+        # Create a LineCollection object with a color gradient
+        points = np.array([V, Q]).T.reshape(-1, 1, 2)
+        segments = np.concatenate([points[:-1], points[1:]], axis=1)
+        lc = LineCollection(segments, cmap=ListedColormap(colors), norm=BoundaryNorm(t, len(t)), linewidth=2, alpha=alpha_value)
+        lc.set_array(t)
+
+        # Plot the trajectory
+        plt.gca().add_collection(lc)
+
+        # Plot the inspiration/expiration separation and peak expiratory flow
+        plt.plot([0, V_Q_0], [0, 0], color="deepskyblue")
+        plt.scatter(V[np.argmin(Q)], np.min(Q), color='brown')
+
+    plt.colorbar(lc, label='Time')
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.title(title)
+    plt.show()
+
+
+    # Custom legend for each patient
+    for i, name in enumerate(names):
+        plt.plot([], [],  color=cmap(norm(0)))  # Dummy plot for legend
+    plt.legend(loc='lower right')
+    plt.show()
 
 def get_RIW_REW_EW(data):
     P = data['P']
@@ -151,21 +196,25 @@ def get_RIW_REW_EW(data):
     RIW = np.abs(np.trapz(V, P)) -(REW)
     return RIW, REW, EW
 
+def get_peak_expiratory_flow(data):
+    Q = data['Q']
+    return np.min(Q)
+
+def get_tidal_volume(data):
+    Q = data['Q']
+    V = data['V']
+    index_inspi = np.where(Q >= 0)[0]
+    V_Q_0 = V[index_inspi[-1]]
+    return V_Q_0
 
 
-cycles = extract_cycles(Control_data)
-plot_time_curves(cycles[3], name = "drawwork.png", title = " ", x_label= "Pressure [cmH2O]", y_label= "Volume [l]")
-RIW = []
-REW = []
-EW = []
-
-"""
+cycles = extract_cycles(ARDS_data)
+cycles2 = extract_cycles(Control_data)
+plot_time_curves(cycles[3], name = "QVARDS.png", title = "ARDS Patient - Cycle 4 - Q-V curve ", x_label= "Volume [l]", y_label= "Flow [l/s]")
+Qmin = []
+tidal_volumes = []
 for i in range(len(cycles)):
-    plot_time_curves(cycles[i])
-    riw, rew, ew = get_RIW_REW_EW(cycles[i])
-    RIW.append(riw)
-    REW.append(rew)
-    EW.append(ew)
-print(len(cycles))
-print(np.std(RIW), np.std(REW), np.std(EW))
-""" 
+    Qmin.append(get_peak_expiratory_flow(cycles[i]))
+    tidal_volumes.append(get_tidal_volume(cycles[i]))
+
+plot_both_curves([cycles[4], cycles2[4]], names=["Patient 1", "Patient 2"], title= "Q-V Loop - Cycle 4 - for both Control and ARDS Patients", x_label= 'Pressure [cmH2O]', y_label= 'Volume [l]')
