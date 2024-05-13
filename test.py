@@ -38,27 +38,9 @@ def extract_cycles(data):
                        'P' : P[filtered_V_indices[i]:filtered_V_indices[i+1]+1],
                        'Q' : Q[filtered_V_indices[i]:filtered_V_indices[i+1]+1],
                        'V' : V[filtered_V_indices[i]:filtered_V_indices[i+1]+1]})
-    """
-    plt.figure()
-    plt.plot(t, V)
-    for k in range(len(filtered_V_indices)):
-        plt.axvline(t[filtered_V_indices[k]], color='red')
-    plt.show()
 
-    plt.figure()
-    plt.plot(t, Q)
-    for k in range(len(filtered_V_indices)):
-        plt.axvline(t[filtered_V_indices[k]], color='red')
-    plt.show()
-
-    plt.figure()
-    plt.plot(t, P)
-    for k in range(len(filtered_V_indices)):
-        plt.axvline(t[filtered_V_indices[k]], color='red')
-    plt.show()
-    """
     return cycles
-def plot_time_curves(data, name = "salut", title="Data",alpha_value = 0.5, x_label = "X", y_label ="Y", grid = True):
+def get_works(data, title="Data",alpha_value = 0.5, x_label = "X", y_label ="Y", grid = True):
     P = data['P']
     V = data['V']
     Q = data['Q']
@@ -87,18 +69,48 @@ def plot_time_curves(data, name = "salut", title="Data",alpha_value = 0.5, x_lab
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.title(title)
+
     minP = np.argmin(P)
-    index_inspi = np.where(Q >= 0)[0]
+    minV = 0
+    index_inspi = np.where(Q >= 0)
+    index_inspi = index_inspi[0]
     V_Q_0 = V[index_inspi[-1]]
     P_Q_0 = P[index_inspi[-1]]
-    ax.plot([P[minP], P_Q_0],  [0, V_Q_0], label = 'Inspiration/Expiration Separation', color ="deepskyblue")
-    ax.plot([P[minP], P[minP]], [0, V_Q_0], label = 'Limit of Elastic Work', color = "midnightblue", linestyle = 'dashed')
-    ax.plot([P[minP], P_Q_0], [V_Q_0, V_Q_0], color = "midnightblue", linestyle = 'dashed')
+    P_inspi = P[index_inspi]
+    V_inspi = V[index_inspi]
+
+
+    
+    a,b = np.polyfit([P[minP], P_Q_0],  [0, V_Q_0], deg = 1)
+
+    px = V_inspi/a - b
+    vy = P_inspi*a +b
+    
+    interpolation_1 = interp1d([P[minP],P_Q_0],[0,V_Q_0], kind = 'linear',fill_value="extrapolate")
+    p_bas = []
+    v_bas =  []
+    for i in range(len(V)):
+            x = interpolation_1(P[i])
+            if V[i] <=x:
+                p_bas.append(P[i])
+                v_bas.append(V[i])
+
+    tri_pression= sorted(zip(p_bas,v_bas))
+    p_bas,v_bas = zip(*tri_pression)
+    v_interp = interpolation_1(p_bas)
+
+    resistive_inspiratory_work = np.trapz(v_interp-v_bas, x=p_bas)
+
+    equation_label = f"y = {a:.3f}x + {b:.3f}"
+    ax.plot([P[minP], P_Q_0],  [0, V_Q_0], label = equation_label, color ="deepskyblue")
     ax.legend(loc = 'lower right')
-    plt.xlim(2,45)
-    plt.ylim(-0.01, 0.31)
-    plt.grid()
-    plt.savefig(name, dpi = 150)
+
+    RIW = np.trapz(P_inspi, V_inspi-vy)
+    REW = np.trapz(P,V) - RIW
+    plt.plot(P_inspi, V_inspi,color = "mediumpurple")
+    plt.fill_between(P,V, color = "lavender")
+    plt.fill_between(P_inspi, V_inspi, color = "mediumpurple", label = 'RIW')
+    plt.legend(loc = 'lower right')
     plt.show()
     plt.figure(2)
     print("---VQ loop---")
@@ -123,59 +135,51 @@ def plot_time_curves(data, name = "salut", title="Data",alpha_value = 0.5, x_lab
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.title(title)
-    ax.plot([0,V_Q_0],  [0, 0], color ="deepskyblue", label ='Inspiration/Expiration Separation' )
-    plt.scatter(V[np.argmin(Q)],np.min(Q), color = 'brown', label = 'Peak Expiratory Flow')
-    plt.legend(loc = 'lower left')
-    plt.xlim(-0.03, 0.33)
-    plt.ylim(-1,0.6)
-    plt.grid()
+    ax.plot([0,V_Q_0],  [0, 0], color ="deepskyblue")
     plt.show()
-
-def get_RIW_REW_EW(data):
-    P = data['P']
-    V = data['V']
-    Q = data['Q']
-    t = data['t'] - data['t'][0]
-
-    minP = np.argmin(P)
-    index_inspi = np.where(Q >= 0)[0]
-
-    V_Q_0 = V[index_inspi[-1]]
-    P_Q_0 = P[index_inspi[-1]]
-    base = np.abs(P_Q_0 - P[minP])
-    print(base)
     
-    EW = (base * V_Q_0)/2
 
-    P_expi = P[index_inspi[-1]:]
-    V_expi = V[index_inspi[-1]:]   
+    return resistive_inspiratory_work, RIW, REW
 
-    a,b = np.polyfit([P[minP], P_Q_0],  [0, V_Q_0], deg = 1)
-    y = P_expi*a +b
-    V_expi_adjusted = y-V_expi
-    REW = np.abs(np.trapz(V_expi_adjusted, P_expi))
-  
-    RIW = np.abs(np.trapz(V, P)) -(REW)
-    return RIW, REW, EW
+cycles = extract_cycles(Control_data)
 
-def get_peak_expiratory_flow(data):
-    Q = data['Q']
-    return np.min(Q)
+resistive, RIW, REW = get_works(cycles[3])
+print(resistive, RIW, REW)
 
-def get_tidal_volume(data):
-    Q = data['Q']
-    V = data['V']
-    index_inspi = np.where(Q >= 0)[0]
-    V_Q_0 = V[index_inspi[-1]]
-    return V_Q_0
+def plot_both_curves(data_list, names=["Patient 1", "Patient 2"], title="Data", alpha_value=0.5, x_label="V", y_label="Q", grid=True):
+    plt.figure(figsize=(8, 6))
+    plt.grid(grid)
+    cmap = plt.cm.jet  # Colormap
 
+    for idx, data in enumerate(data_list):
+        P = data['P']
+        V = data['V']
+        Q = data['Q']
+        t = data['t'] - data['t'][0]
 
-cycles = extract_cycles(ARDS_data)
-cycles2 = extract_cycles(Control_data)
-plot_time_curves(cycles[3], name = "ARDScontrol.png", grid = True, title = "ARDS Patient - Cycle 4 - P-V curve ", x_label= "Pressure [cmH2O]", y_label= "Volume [l]")
-Qmin = []
-tidal_volumes = []
-for i in range(len(cycles)):
-    Qmin.append(get_peak_expiratory_flow(cycles[i]))
-    tidal_volumes.append(get_tidal_volume(cycles[i]))
+        # Index of the last inspiration point
+        index_inspi = np.where(Q >= 0)[0]
+        V_Q_0 = V[index_inspi[-1]]
 
+        # Create a colormap that represents the gradient of time
+        norm = plt.Normalize(min(t), max(t))
+        colors = cmap(norm(t))
+
+        # Create a LineCollection object with a color gradient
+        points = np.array([V, Q]).T.reshape(-1, 1, 2)
+        segments = np.concatenate([points[:-1], points[1:]], axis=1)
+        lc = LineCollection(segments, cmap=ListedColormap(colors), norm=BoundaryNorm(t, len(t)), linewidth=2, alpha=alpha_value)
+        lc.set_array(t)
+
+        # Plot the trajectory
+        plt.gca().add_collection(lc)
+
+        # Plot the inspiration/expiration separation and peak expiratory flow
+        plt.plot([0, V_Q_0], [0, 0], color="deepskyblue")
+        plt.scatter(V[np.argmin(Q)], np.min(Q), color='brown')
+
+    plt.colorbar(lc, label='Time')
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.title(title)
+    plt.show()
