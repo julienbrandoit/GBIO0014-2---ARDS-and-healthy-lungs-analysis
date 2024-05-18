@@ -9,3 +9,7 @@ We provide our report and codes. The code is in notebook format and has been use
 ## Authors
 
 Two authors contributed equally to this work. BRANDOIT Julien, BODART Fanny.
+
+## In this repo ...
+
+The report is the file `Report.pdf`. The project guidelines are in the file `ISM-project2024.pdf`. We also provide `data` and `graphs`. The code is in the `project.ipynb` file.
